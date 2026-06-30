@@ -16,8 +16,11 @@ from pipeline.local_llm_engine   import LocalEnsembleLLMEngine, EnsembleDecision
 from webui._shared import PLOT_THEME, warn_if_stale_pipeline
 from webui import (
     overview, missing_values, distributions, outliers, correlations,
-    llm_decisions, transformed_data, feedback_loop, results,
+    llm_decisions, transformed_data, feedback_loop,
 )
+# Aliased — the LOO tab assigns to a local named `results`, which would
+# otherwise shadow the module import for the Results tab call below.
+from webui import results as results_tab
 
 from pipeline.models.xgboost_model        import XGBoostModel
 from pipeline.models.neural_network_model import NeuralNetworkModel
@@ -1596,7 +1599,7 @@ if st.session_state.df is not None:
     # from the joint multi-output model trained in the Multitask Learning tab.
     # ──────────────────────────────────────────────────────────────────────
     with tabs[10]:
-        results.render()
+        results_tab.render()
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 12 — BO / MOBO  (tabs[11])
