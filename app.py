@@ -1,19 +1,11 @@
 # app.py
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import json
 import warnings
-from io import StringIO
 
-from pipeline.orchestrator       import AutoEDAPipeline
-from pipeline.local_llm_engine   import LocalEnsembleLLMEngine, EnsembleDecision
+import numpy as np
+import pandas as pd
+import streamlit as st
 
-from webui._shared import PLOT_THEME
 from webui import (
     overview, missing_values, distributions, outliers, correlations,
     llm_decisions, transformed_data, loo_results, mtl, feedback_loop,
@@ -21,61 +13,7 @@ from webui import (
 )
 from webui import results as results_tab
 
-from pipeline.models.xgboost_model        import XGBoostModel
-from pipeline.models.neural_network_model import NeuralNetworkModel
-from pipeline.models.hpo import (
-    optimize_xgboost,
-    optimize_neural_network,
-    optimize_tabpfn,
-    TabPFNWrapper,
-    _OPTUNA_AVAILABLE,
-)
-
-from sklearn.ensemble  import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.model_selection import (
-    cross_validate,
-    KFold,
-    LeaveOneOut,
-    StratifiedKFold,          # ✅ FIX Bug 1: was missing
-)
-from sklearn.metrics import (
-    r2_score,
-    mean_squared_error,
-    mean_absolute_error,
-    mean_absolute_percentage_error,   # ✅ FIX Bug 2: was missing
-    accuracy_score,
-    f1_score,
-    confusion_matrix,
-)
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-
 warnings.filterwarnings("ignore")
-
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# OPTIONAL DEPENDENCY FLAGS
-# ─────────────────────────────────────────────────────────────────────────────
-try:
-    from xgboost import XGBClassifier, XGBRegressor
-    _XGBOOST_AVAILABLE = True
-except ImportError:
-    _XGBOOST_AVAILABLE = False
-
-try:
-    from tabpfn import TabPFNClassifier, TabPFNRegressor
-    _TABPFN_AVAILABLE = True
-except ImportError:
-    _TABPFN_AVAILABLE = False
-
-try:
-    import torch  # noqa: F401  (used inside the BO tab)
-    import botorch  # noqa: F401
-    import gpytorch  # noqa: F401
-    _BOTORCH_AVAILABLE = True
-except ImportError:
-    _BOTORCH_AVAILABLE = False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
