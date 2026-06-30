@@ -13,7 +13,7 @@ from io import StringIO
 from pipeline.orchestrator       import AutoEDAPipeline
 from pipeline.local_llm_engine   import LocalEnsembleLLMEngine, EnsembleDecision
 
-from webui._shared import PLOT_THEME
+from webui._shared import PLOT_THEME, warn_if_stale_pipeline
 from webui import (
     overview, missing_values, distributions, outliers, correlations,
     llm_decisions, transformed_data, feedback_loop, results,
@@ -1339,6 +1339,8 @@ if st.session_state.df is not None:
         )
 
         if st.button("Run Multitask Learning", key="btn_run_mtl"):
+            if warn_if_stale_pipeline(target_cols):
+                st.stop()
             try:
                 from sklearn.multioutput import (
                     MultiOutputRegressor,
@@ -1353,10 +1355,16 @@ if st.session_state.df is not None:
                 # leaves scaler_mtl=None — pipelines can be multi-step and
                 # don't all expose inverse_transform; warn-only for those.
                 if st.session_state.get("pipeline") is not None:
-                    t_df_mtl = st.session_state.pipeline.get_transformed_df(df)
-                    X_full_df = t_df_mtl.drop(
-                        columns=target_cols, errors="ignore"
-                    )
+                    # Strip ALL selected targets up front. AutoEDAPipeline
+                    # only knows about self.target_col (the primary), so a
+                    # secondary target (e.g. compressive_strength in a
+                    # 3-target MOBO run) would otherwise be transformed
+                    # into a feature like num__compressive_strength and
+                    # leak into X — the t_df_mtl.drop below cannot recover
+                    # it because the column name has changed.
+                    X_only = df.drop(columns=target_cols, errors="ignore")
+                    t_df_mtl = st.session_state.pipeline.get_transformed_df(X_only)
+                    X_full_df = t_df_mtl
                     feature_names_mtl = list(X_full_df.columns)
                     X_mtl = X_full_df.values.astype(np.float32)
                     scaler_mtl = None

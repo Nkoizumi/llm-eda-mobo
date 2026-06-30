@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from webui._shared import PLOT_THEME
+from webui._shared import PLOT_THEME, warn_if_stale_pipeline
 
 
 def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:
@@ -14,10 +14,19 @@ def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:
                 unsafe_allow_html=True)
 
     if st.button("Transform Dataset", key="btn_transform"):
-        if st.session_state.pipeline is not None:
+        if st.session_state.pipeline is None:
+            st.warning("Run LLM Analysis first (Tab: LLM Decisions).")
+        elif not warn_if_stale_pipeline(target_cols):
             with st.spinner("Transforming data..."):
                 try:
-                    t_df = st.session_state.pipeline.get_transformed_df(df)
+                    # Drop ALL selected targets, not just the pipeline's primary
+                    # one. AutoEDAPipeline.get_transformed_df only strips its
+                    # own self.target_col, so any secondary target left in the
+                    # frame would be re-transformed into a feature (e.g.
+                    # compressive_strength -> num__compressive_strength) and
+                    # leak.
+                    X_only = df.drop(columns=target_cols, errors="ignore")
+                    t_df = st.session_state.pipeline.get_transformed_df(X_only)
                     st.session_state.transformed_df = t_df
                     st.success(
                         f"Transformed: "
@@ -25,8 +34,6 @@ def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:
                     )
                 except Exception as e:
                     st.error(f"Transform Error: {e}")
-        else:
-            st.warning("Run LLM Analysis first (Tab: LLM Decisions).")
 
     if st.session_state.transformed_df is None:
         return
