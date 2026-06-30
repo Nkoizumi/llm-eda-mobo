@@ -138,7 +138,22 @@ See `requirements.txt` for the full Python dependency list.
 
 ```
 auto_eda/
-├── app.py                     # Streamlit UI (all 12 tabs)
+├── app.py                     # Streamlit entry point: page config + sidebar + tab dispatch
+├── webui/                     # one module per Streamlit tab (1 render() each)
+│   ├── overview.py            # Tab 1
+│   ├── missing_values.py      # Tab 2
+│   ├── distributions.py       # Tab 3
+│   ├── outliers.py            # Tab 4
+│   ├── correlations.py        # Tab 5
+│   ├── llm_decisions.py       # Tab 6 — Phi-4 + Mistral ensemble
+│   ├── transformed_data.py    # Tab 7
+│   ├── loo_results.py         # Tab 8
+│   ├── mtl.py                 # Tab 9 — joint multi-output model
+│   ├── feedback_loop.py       # Tab 10
+│   ├── results.py             # Tab 11 — per-target FI + PDP
+│   ├── bo_mobo.py             # Tab 12 — BO / MOBO on GP surrogates
+│   ├── _shared.py             # plot theme, parity plot, stale-pipeline guard
+│   └── _loo_utils.py          # LOO-specific helpers
 ├── eda_pipeline.py            # standalone EDA pipeline (used outside the UI)
 ├── pipeline/
 │   ├── orchestrator.py        # AutoEDAPipeline — programmatic entry point
@@ -153,15 +168,19 @@ auto_eda/
 └── environment.yml            # conda env spec
 ```
 
-The Streamlit app is the primary entry point. For programmatic use:
+Each tab module exposes a single `render(...)` function called from `app.py`. To add a new tab, drop a `webui/<name>.py` with a `render(...)`, add it to the `from webui import ...` block in `app.py`, and append it to the `st.tabs([...])` list + a `with tabs[N]: <name>.render(...)` dispatch.
+
+The Streamlit app is the primary entry point. For programmatic use, skip the UI entirely:
 
 ```python
 from pipeline.orchestrator import AutoEDAPipeline
 
 eda = AutoEDAPipeline(target_col="compressive_strength", task="regression")
-eda.build_pipeline(df)
-transformed = eda.get_transformed_df(df)
+eda.build_pipeline(df.drop(columns=["compressive_strength"]))   # features only
+transformed = eda.get_transformed_df(df.drop(columns=["compressive_strength"]))
 ```
+
+Note: `AutoEDAPipeline` is single-target. For multi-target work (joint model, MOBO), strip *all* target columns from the input to `build_pipeline` and `get_transformed_df` — passing the full frame would silently transform the secondary targets into `num__<name>` feature columns. The Streamlit UI handles this stripping internally.
 
 ---
 
