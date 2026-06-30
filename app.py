@@ -14,7 +14,10 @@ from pipeline.orchestrator       import AutoEDAPipeline
 from pipeline.local_llm_engine   import LocalEnsembleLLMEngine, EnsembleDecision
 
 from webui._shared import PLOT_THEME
-from webui import overview, missing_values, distributions, outliers, correlations
+from webui import (
+    overview, missing_values, distributions, outliers, correlations,
+    feedback_loop,
+)
 
 from pipeline.models.xgboost_model        import XGBoostModel
 from pipeline.models.neural_network_model import NeuralNetworkModel
@@ -1881,21 +1884,8 @@ if st.session_state.df is not None:
     # TAB 10 — FEEDBACK LOOP  (tabs[9])
     # ──────────────────────────────────────────────────────────────────────
     with tabs[9]:
-        st.markdown(
-            '<p class="tab-header">🔄 Feedback Loop</p>',
-            unsafe_allow_html=True,
-        )
-        st.info(
-            "The Feedback Loop tab will display iterative model improvement "
-            "results driven by the AutoEDA controller.\n\n"
-            "Run the pipeline from **LLM Decisions** first to populate results here."
-        )
+        feedback_loop.render()
 
-        if st.session_state.get("feedback_loop_results") is not None:
-            st.json(st.session_state["feedback_loop_results"])
-        else:
-            st.warning("No feedback loop results yet. Run the LLM pipeline first.")
-            
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 11 — RESULTS  (tabs[10])
