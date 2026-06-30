@@ -311,7 +311,14 @@ def load_demo_data():
 
 
 if uploaded_file is not None:
-    st.session_state.df = pd.read_csv(uploaded_file)
+    # Strip leading/trailing whitespace from column names. CSVs exported from
+    # Excel or hand-edited (e.g. data/slump_test.csv) sometimes carry a
+    # trailing space on the last column ("compressive_strength "), which
+    # silently breaks any sidebar input that matches the visible column
+    # name without whitespace.
+    raw = pd.read_csv(uploaded_file)
+    raw.columns = raw.columns.str.strip()
+    st.session_state.df = raw
 elif use_demo:
     st.session_state.df = load_demo_data()
 
