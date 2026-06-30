@@ -14,7 +14,7 @@ from pipeline.orchestrator       import AutoEDAPipeline
 from pipeline.local_llm_engine   import LocalEnsembleLLMEngine, EnsembleDecision
 
 from webui._shared import PLOT_THEME
-from webui import overview, missing_values
+from webui import overview, missing_values, distributions
 
 from pipeline.models.xgboost_model        import XGBoostModel
 from pipeline.models.neural_network_model import NeuralNetworkModel
@@ -788,92 +788,7 @@ if st.session_state.df is not None:
     # TAB 3 — DISTRIBUTIONS
     # ──────────────────────────────────────────────────────────────────────
     with tabs[2]:
-        st.markdown('<p class="tab-header">Feature Distributions</p>',
-                    unsafe_allow_html=True)
-
-        num_cols_disp = [
-            c for c in df.select_dtypes(include=np.number).columns
-            if c not in target_cols
-        ]
-        if not num_cols_disp:
-            st.warning("No numeric feature columns found (excluding target(s)).")
-        else:
-            selected_feat = st.selectbox("Select Feature", num_cols_disp)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_hist = px.histogram(
-                    df, x=selected_feat, nbins=40, marginal="box",
-                    title=f"Distribution: {selected_feat}",
-                    color_discrete_sequence=["#58a6ff"]
-                )
-                fig_hist.update_layout(**PLOT_THEME)
-                st.plotly_chart(fig_hist, use_container_width=True)
-
-            with col2:
-                from scipy import stats
-                clean = df[selected_feat].dropna()
-                (osm, osr), (slope, intercept, _) = stats.probplot(
-                    clean, dist="norm"
-                )
-                fig_qq = go.Figure()
-                fig_qq.add_trace(go.Scatter(
-                    x=osm, y=osr, mode="markers",
-                    marker=dict(color="#58a6ff", size=5), name="Data"
-                ))
-                fig_qq.add_trace(go.Scatter(
-                    x=osm,
-                    y=slope * np.array(osm) + intercept,
-                    mode="lines",
-                    line=dict(color="#f85149", width=2),
-                    name="Normal"
-                ))
-                fig_qq.update_layout(
-                    title=f"Q-Q Plot: {selected_feat}",
-                    xaxis_title="Theoretical Quantiles",
-                    yaxis_title="Sample Quantiles",
-                    **PLOT_THEME
-                )
-                st.plotly_chart(fig_qq, use_container_width=True)
-
-            stats_data = pd.DataFrame({
-                "Feature":         num_cols_disp,
-                "Mean":            [df[c].mean()            for c in num_cols_disp],
-                "Std":             [df[c].std()             for c in num_cols_disp],
-                "Skewness":        [round(df[c].skew(),     3) for c in num_cols_disp],
-                "Kurtosis":        [round(df[c].kurtosis(), 3) for c in num_cols_disp],
-                "Needs Transform": [
-                    "Yes" if abs(df[c].skew()) > 0.5 or abs(df[c].kurtosis()) > 3
-                    else "No"
-                    for c in num_cols_disp
-                ],
-            }).round(4)
-
-            def highlight_transform(val):
-                return (
-                    "background-color:#3d1c1c;color:#f85149;"
-                    if val == "Yes" else ""
-                )
-
-            st.dataframe(
-                stats_data.style.applymap(
-                    highlight_transform, subset=["Needs Transform"]
-                ),
-                use_container_width=True
-            )
-
-            st.markdown("#### All Feature Distributions (Violin)")
-            fig_violin = go.Figure()
-            for col in num_cols_disp[:8]:
-                fig_violin.add_trace(go.Violin(
-                    y=df[col].dropna(), name=col,
-                    box_visible=True, meanline_visible=True
-                ))
-            fig_violin.update_layout(
-                title="Feature Distribution Violin Plots",
-                **PLOT_THEME, height=450
-            )
-            st.plotly_chart(fig_violin, use_container_width=True)
+        distributions.render(df, target_cols=target_cols)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 4 — OUTLIERS
