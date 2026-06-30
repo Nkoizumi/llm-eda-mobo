@@ -89,8 +89,7 @@ st.markdown("""
 # ─────────────────────────────────────────────────────────────────────────────
 for key in [
     "pipeline", "df", "decisions", "loo_results",
-    "profile", "transformed_df",
-    "rf_kfold_results",
+    "transformed_df",
     "feedback_loop_results",
     "hpo_results",          # HPO best params per estimator
     "mtl_results",          # joint multi-output model from the Multitask Learning tab
