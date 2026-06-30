@@ -2071,6 +2071,14 @@ if st.session_state.df is not None:
                             f"{bo_label} suggested **{len(cand_df)}** candidate "
                             f"point(s). See the table below."
                         )
+                        # The "Existing data view" block above (around line
+                        # 1722) reads bo_candidates from session_state and
+                        # overlays them on the Pareto plot — but it already
+                        # ran with the OLD value during this script pass.
+                        # Rerun once so the overlay picks up the new batch
+                        # immediately instead of only after the user's next
+                        # interaction.
+                        st.rerun()
 
                     except Exception as e:
                         st.error(f"{bo_label} failed: {e}")
