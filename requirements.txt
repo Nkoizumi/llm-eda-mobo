@@ -1,0 +1,58 @@
+# Core dependencies for auto_eda. The canonical source of truth is pyproject.toml.
+# Prefer:
+#     pip install .          # this list (core only — no BO/MOBO tab)
+#     pip install .[bo]      # + torch + gpytorch + botorch (Bayesian Optimization tab)
+#     pip install .[all]     # everything: bo + profiling + hpo + feedback
+#
+# This file is kept as a fallback for users who prefer the requirements.txt workflow.
+
+# ── LLM client + orchestration ───────────────────
+ollama
+langchain
+langchain-ollama
+langchain-core
+tenacity
+
+# ── Data ─────────────────────────────────────────
+pandas
+numpy
+scipy
+scikit-learn>=1.3
+xgboost
+
+# ── Feature engineering ──────────────────────────
+feature-engine
+category-encoders
+imbalanced-learn
+
+# ── Visualization ────────────────────────────────
+matplotlib
+seaborn
+plotly
+
+# ── Web UI ───────────────────────────────────────
+streamlit>=1.30
+streamlit-extras
+
+# ── Utilities ────────────────────────────────────
+python-dotenv
+pydantic
+loguru
+openpyxl
+json5
+
+# ── Optional extras (uncomment to install) ───────
+# Bayesian Optimization / MOBO tab — heavy (~3 GB):
+# torch>=2.0
+# gpytorch>=1.11
+# botorch>=0.18
+#
+# Auto-generated EDA reports:
+# ydata-profiling
+# sweetviz
+#
+# Hyperparameter optimization:
+# optuna
+#
+# SHAP-driven feedback loop (CLI):
+# shap

@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto_eda"
+version = "0.1.0"
+description = "Local-LLM-driven exploratory data analysis and inverse design."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Naoto Koizumi", email = "nkoizumi0001@gmail.com" }]
+keywords = [
+    "automl", "eda", "bayesian-optimization", "mobo", "local-llm",
+    "ollama", "ensemble", "scikit-learn", "streamlit",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # LLM client + orchestration
+    "ollama",
+    "langchain",
+    "langchain-ollama",
+    "langchain-core",
+    "tenacity",
+
+    # Data
+    "pandas",
+    "numpy",
+    "scipy",
+    "scikit-learn>=1.3",
+    "xgboost",
+
+    # Feature engineering
+    "feature-engine",
+    "category-encoders",
+    "imbalanced-learn",
+
+    # Visualization
+    "matplotlib",
+    "seaborn",
+    "plotly",
+
+    # Web UI
+    "streamlit>=1.30",
+    "streamlit-extras",
+
+    # Utilities
+    "python-dotenv",
+    "pydantic",
+    "loguru",
+    "openpyxl",
+    "json5",
+]
+
+[project.optional-dependencies]
+# Bayesian Optimization / MOBO tab. Heavy: pulls torch (~2 GB) + gpytorch + botorch.
+bo = [
+    "torch>=2.0",
+    "gpytorch>=1.11",
+    "botorch>=0.18",
+]
+# Auto-generated EDA reports (ydata-profiling + sweetviz). ~500 MB combined.
+profiling = [
+    "ydata-profiling",
+    "sweetviz",
+]
+# Hyperparameter optimization tab.
+hpo = ["optuna"]
+# SHAP-driven feedback loop (CLI: run_feedback.py).
+feedback = ["shap"]
+# Convenience bundle.
+all = [
+    "auto_eda[bo,profiling,hpo,feedback]",
+]
+# Dev tooling.
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.urls]
+# Add once the GitHub repo is live.
+# Homepage   = "https://github.com/<user>/auto_eda"
+# Repository = "https://github.com/<user>/auto_eda"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pipeline*"]
+exclude = ["data*", "tests*", "scripts*", "__pycache__*"]
