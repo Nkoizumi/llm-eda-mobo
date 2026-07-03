@@ -1,6 +1,6 @@
 # llm-eda-mobo
 
-**Local-LLM-driven exploratory data analysis and inverse design.** Two local language models (Phi-4 + Mistral) read your dataset's statistical profile, debate the preprocessing choices, and emit a fully inspectable scikit-learn `Pipeline`. From there: cross-validated joint models for up to 3 targets, partial-dependence diagnostics, and Bayesian Optimization (single-target BO or multi-target MOBO with a 3D Pareto front).
+**Local-LLM-driven exploratory data analysis and multi-objective Bayesian Optimization.** Two local language models (Phi-4 + Mistral) read your dataset's statistical profile, debate the preprocessing choices, and emit a fully inspectable scikit-learn `Pipeline`. From there: cross-validated joint models for up to 3 targets, partial-dependence diagnostics, and Bayesian Optimization (single-target BO or multi-target MOBO with a 3D Pareto front).
 
 No data leaves your machine — all inference runs against a local [Ollama](https://ollama.com/) server.
 
