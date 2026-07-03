@@ -49,6 +49,22 @@ Total time: ~30 seconds on an RTX 4090, ~2 minutes on CPU.
 
 ---
 
+## Benchmarks
+
+LLM-picked preprocessing → joint multi-output model, on standard tabular datasets:
+
+| Dataset | n | Task | Best base | Score |
+|---|---|---|---|---|
+| Fish | 159 | regression (Weight) | RF | **R² 0.971** (LOO) |
+| ENB2012 | 768 | 2-target regression (Y1, Y2) | XGBoost | **R² 0.999 / 0.991** (5-fold) |
+| AmesHousing | 2930 | regression (SalePrice) | XGBoost | **R² 0.904** (5-fold) |
+| Titanic | 891 | classification (Survived) | NN | **Acc 0.826** (5-fold) |
+| slump_test | 103 | 3-target regression | RF | **R² 0.29 / 0.41 / 0.82** (LOO) |
+
+LOO for `n ≤ 200`, 5-fold CV otherwise. Reproduce with `python scripts/run_benchmarks.py` (needs Ollama with `phi4` + `mistral` pulled). Per-estimator breakdown, MAE / F1, and methodology in [BENCHMARKS.md](BENCHMARKS.md).
+
+---
+
 ## Pipeline
 
 ```mermaid
