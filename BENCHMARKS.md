@@ -1,4 +1,4 @@
-# auto_eda — benchmarks
+# llm-eda-mobo — benchmarks
 
 All numbers come from the LLM-driven preprocessing path (Phi-4 + Mistral ensemble decides imputation, scaler, encoding, outlier method, correlation threshold) → joint multi-output model.
 

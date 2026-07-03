@@ -8,7 +8,7 @@ No data leaves your machine — all inference runs against a local [Ollama](http
 
 ## Why this isn't another Streamlit AutoML
 
-| Most AutoML tools | auto_eda |
+| Most AutoML tools | llm-eda-mobo |
 |---|---|
 | Picks preprocessing from a fixed recipe | Two LLMs **decide** imputation / scaler / encoding / outlier method per dataset, with a written-out justification |
 | Single model, single objective | Joint multi-output model + Bayesian Optimization across up to 3 objectives |
@@ -137,7 +137,7 @@ See `requirements.txt` for the full Python dependency list.
 ## Project layout
 
 ```
-auto_eda/
+llm-eda-mobo/
 ├── app.py                     # Streamlit entry point: page config + sidebar + tab dispatch
 ├── webui/                     # one module per Streamlit tab (1 render() each)
 │   ├── overview.py            # Tab 1
