@@ -26,7 +26,7 @@ The LLM call is not the model. The LLM picks the *preprocessing recipe* for a st
 pip install .                     # core only (no BO/MOBO tab)
 pip install .[bo]                 # + Bayesian Optimization / MOBO (heavy: ~3 GB torch + gpytorch + botorch)
 pip install .[all]                # everything: bo + profiling + hpo + feedback
-# or, full GPU-ready conda environment:
+# or, full GPU-ready conda environment (env name: auto_eda, matches environment.yml):
 # conda env create -f environment.yml && conda activate auto_eda
 
 # 2. Pull the LLMs (one-time, ~10 GB)
