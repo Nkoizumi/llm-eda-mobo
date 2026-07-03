@@ -73,7 +73,7 @@ flowchart LR
     B --> C[Phi-4 + Mistral<br/>parallel inference]
     C --> D{Conflict?}
     D -- no --> E[Ensemble decision]
-    D -- yes --> F[Arbitrator]
+    D -- yes --> F[Gemma2 arbitrator<br/>tiebreak vote]
     F --> E
     E --> G[sklearn Pipeline<br/>impute · transform · scale · encode]
     G --> H[Joint multi-output model<br/>RF / XGBoost / NN]
@@ -88,9 +88,13 @@ flowchart LR
 ASCII fallback:
 
 ```
-CSV ─▶ profile ─▶ [Phi-4 ‖ Mistral] ─▶ ensemble decision ─▶ sklearn Pipeline
-                                                                  │
-                          ┌───────────────────────────────────────┘
+CSV ─▶ profile ─▶ [Phi-4 ‖ Mistral] ─▶ agree? ─yes─▶ ensemble decision ─▶ sklearn Pipeline
+                                          │                  ▲                    │
+                                          no                 │                    │
+                                          ▼                  │                    │
+                                   Gemma2 tiebreaker ────────┘                    │
+                                                                                  │
+                          ┌───────────────────────────────────────────────────────┘
                           ▼
               joint multi-output model (RF / XGB / NN)
                           │
@@ -116,7 +120,7 @@ CSV ─▶ profile ─▶ [Phi-4 ‖ Mistral] ─▶ ensemble decision ─▶ sk
 | 3 | Distributions | histograms, KDE, boxplots per feature |
 | 4 | Outliers | IQR / Z-score / Isolation Forest, side by side |
 | 5 | Correlations | Pearson / Spearman heatmap with selectable threshold |
-| 6 | **LLM Decisions** | Phi-4 + Mistral pick imputation, scaler, encoding, outlier method, correlation threshold. Per-model reasoning shown; conflicts listed. |
+| 6 | **LLM Decisions** | Phi-4 + Mistral pick imputation, scaler, encoding, outlier method, correlation threshold; Gemma2 casts a low-temperature tiebreaker vote when they disagree. Per-model reasoning shown; conflicts listed. |
 | 7 | Transformed Data | inspect the sklearn-pipeline output column-by-column |
 | 8 | LOO Results | leave-one-out CV against the primary target |
 | 9 | **Multitask Learning** | one joint MultiOutputRegressor over up to 3 targets, K-fold CV with per-target metrics |
@@ -142,7 +146,7 @@ The three bolded tabs are the headline features. The rest are inspection surface
 
 - Python 3.11+
 - [Ollama](https://ollama.com/) running locally on `http://localhost:11434`
-- Models: `phi4`, `mistral` (`ollama pull phi4 mistral`). Optionally `gemma2` as a tiebreaker.
+- Models: `phi4`, `mistral`, `gemma2` (`ollama pull phi4 mistral gemma2`). Gemma2 is only invoked when Phi-4 and Mistral disagree, so it's recommended but not strictly required — without it, the ensemble falls back to Phi-4's vote on conflicts.
 - ~16 GB RAM minimum, 24 GB+ recommended (Phi-4 alone is ~9 GB).
 - GPU optional but strongly recommended (CUDA 12+). The `RTX4090_CONFIG` in `pipeline/local_llm_engine.py` is tuned for a 24 GB card; smaller cards should drop `num_ctx` and `num_predict`.
 
