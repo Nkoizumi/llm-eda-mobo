@@ -159,7 +159,7 @@ See `requirements.txt` for the full Python dependency list.
 ```
 llm-eda-mobo/
 ├── app.py                     # Streamlit entry point: page config + sidebar + tab dispatch
-├── webui/                     # one module per Streamlit tab (1 render() each)
+├── tabs/                      # one module per Streamlit tab (1 render() each)
 │   ├── overview.py            # Tab 1
 │   ├── missing_values.py      # Tab 2
 │   ├── distributions.py       # Tab 3
@@ -188,7 +188,7 @@ llm-eda-mobo/
 └── environment.yml            # conda env spec
 ```
 
-Each tab module exposes a single `render(...)` function called from `app.py`. To add a new tab, drop a `webui/<name>.py` with a `render(...)`, add it to the `from webui import ...` block in `app.py`, and append it to the `st.tabs([...])` list + a `with tabs[N]: <name>.render(...)` dispatch.
+Each tab module exposes a single `render(...)` function called from `app.py`. To add a new tab, drop a `tabs/<name>.py` with a `render(...)`, add it to the `from tabs import ...` block in `app.py`, and append it to the `st.tabs([...])` list + a `with panels[N]: <name>.render(...)` dispatch.
 
 The Streamlit app is the primary entry point. For programmatic use, skip the UI entirely:
 

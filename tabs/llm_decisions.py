@@ -7,7 +7,7 @@ import streamlit as st
 from pipeline.orchestrator     import AutoEDAPipeline
 from pipeline.local_llm_engine import EnsembleDecision
 
-from webui._shared import PLOT_THEME, render_latency
+from tabs._shared import PLOT_THEME, render_latency
 
 
 def render(

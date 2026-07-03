@@ -1,6 +1,6 @@
 """Shared constants and helpers for the auto-EDA Streamlit UI.
 
-Imported by ``app.py`` and the per-tab modules in ``webui/``.
+Imported by ``app.py`` and the per-tab modules in ``tabs/``.
 Grows as tabs are extracted; keep additions minimal and only promote
 something here once it is genuinely reused across tabs.
 """

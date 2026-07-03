@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from webui._shared import PLOT_THEME
+from tabs._shared import PLOT_THEME
 
 
 def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:

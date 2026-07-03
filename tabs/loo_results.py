@@ -22,8 +22,8 @@ from pipeline.models.hpo import (
     _OPTUNA_AVAILABLE,
 )
 
-from webui._shared    import PLOT_THEME, safe_regression_metrics, render_parity_plot
-from webui._loo_utils import run_loo_with_wrapper
+from tabs._shared    import PLOT_THEME, safe_regression_metrics, render_parity_plot
+from tabs._loo_utils import run_loo_with_wrapper
 
 try:
     from tabpfn import TabPFNClassifier, TabPFNRegressor  # noqa: F401

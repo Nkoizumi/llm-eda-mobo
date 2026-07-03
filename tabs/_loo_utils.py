@@ -1,6 +1,6 @@
 """Leave-One-Out helpers used by the LOO Results tab.
 
-Kept out of ``webui/_shared.py`` because only one tab uses them and
+Kept out of ``tabs/_shared.py`` because only one tab uses them and
 they pull in sklearn cross-validation machinery.
 """
 

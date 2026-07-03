@@ -6,12 +6,12 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from webui import (
+from tabs import (
     overview, missing_values, distributions, outliers, correlations,
     llm_decisions, transformed_data, loo_results, mtl, feedback_loop,
     bo_mobo,
 )
-from webui import results as results_tab
+from tabs import results as results_tab
 
 warnings.filterwarnings("ignore")
 
@@ -268,56 +268,56 @@ elif use_demo:
 if st.session_state.df is not None:
     df = st.session_state.df
 
-    tabs = st.tabs([
-        "Overview",            # tabs[0]
-        "Missing Values",      # tabs[1]
-        "Distributions",       # tabs[2]
-        "Outliers",            # tabs[3]
-        "Correlations",        # tabs[4]
-        "LLM Decisions",       # tabs[5]
-        "Transformed Data",    # tabs[6]
-        "LOO Results",         # tabs[7]
-        "Multitask Learning",  # tabs[8]   joint multi-output model
-        "Feedback Loop",       # tabs[9]
-        "Results",             # tabs[10]  per-target FI + PDP
-        "BO / MOBO",           # tabs[11]  Bayesian Optimization on the MTL surrogate
+    panels = st.tabs([
+        "Overview",            # panels[0]
+        "Missing Values",      # panels[1]
+        "Distributions",       # panels[2]
+        "Outliers",            # panels[3]
+        "Correlations",        # panels[4]
+        "LLM Decisions",       # panels[5]
+        "Transformed Data",    # panels[6]
+        "LOO Results",         # panels[7]
+        "Multitask Learning",  # panels[8]   joint multi-output model
+        "Feedback Loop",       # panels[9]
+        "Results",             # panels[10]  per-target FI + PDP
+        "BO / MOBO",           # panels[11]  Bayesian Optimization on the MTL surrogate
     ])
 
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 1 — OVERVIEW
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[0]:
+    with panels[0]:
         overview.render(df)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 2 — MISSING VALUES
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[1]:
+    with panels[1]:
         missing_values.render(df)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 3 — DISTRIBUTIONS
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[2]:
+    with panels[2]:
         distributions.render(df, target_cols=target_cols)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 4 — OUTLIERS
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[3]:
+    with panels[3]:
         outliers.render(df, target_cols=target_cols)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 5 — CORRELATIONS
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[4]:
+    with panels[4]:
         correlations.render(df, target_cols=target_cols)
 
     # ──────────────────────────────────────────────────────────────────────
     # TAB 6 — LLM DECISIONS
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[5]:
+    with panels[5]:
         llm_decisions.render(
             df,
             target_col_input=target_col_input,
@@ -330,42 +330,42 @@ if st.session_state.df is not None:
     # ──────────────────────────────────────────────────────────────────────
     # TAB 7 — TRANSFORMED DATA
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[6]:
+    with panels[6]:
         transformed_data.render(df, target_cols=target_cols)
 
 
     # ──────────────────────────────────────────────────────────────────────
-    # TAB 8 — LOO RESULTS  (tabs[7])
+    # TAB 8 — LOO RESULTS  (panels[7])
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[7]:
+    with panels[7]:
         loo_results.render(df, target_cols=target_cols, target_col_input=target_col_input, task_type=task_type, estimator_choice=estimator_choice)
     # ──────────────────────────────────────────────────────────────────────
-    # TAB 9 — MULTITASK LEARNING  (tabs[8])
+    # TAB 9 — MULTITASK LEARNING  (panels[8])
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[8]:
+    with panels[8]:
         mtl.render(df, target_cols=target_cols, task_type=task_type)
 
 
     # ──────────────────────────────────────────────────────────────────────
-    # TAB 10 — FEEDBACK LOOP  (tabs[9])
+    # TAB 10 — FEEDBACK LOOP  (panels[9])
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[9]:
+    with panels[9]:
         feedback_loop.render()
 
 
     # ──────────────────────────────────────────────────────────────────────
-    # TAB 11 — RESULTS  (tabs[10])
+    # TAB 11 — RESULTS  (panels[10])
     # Feature importance + partial dependence plots, per target,
     # from the joint multi-output model trained in the Multitask Learning tab.
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[10]:
+    with panels[10]:
         results_tab.render()
 
     # ──────────────────────────────────────────────────────────────────────
-    # TAB 12 — BO / MOBO  (tabs[11])
+    # TAB 12 — BO / MOBO  (panels[11])
     # Bayesian Optimization on the joint multi-output GP surrogate.
     # Single target → Log Expected Improvement.
     # Multi-target → qLogExpectedHypervolumeImprovement (MOBO).
     # ──────────────────────────────────────────────────────────────────────
-    with tabs[11]:
+    with panels[11]:
         bo_mobo.render(target_cols=target_cols)

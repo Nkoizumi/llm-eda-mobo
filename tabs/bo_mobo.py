@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from webui._shared import PLOT_THEME
+from tabs._shared import PLOT_THEME
 
 try:
     import torch  # noqa: F401

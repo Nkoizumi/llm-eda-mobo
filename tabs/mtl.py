@@ -8,7 +8,7 @@ import streamlit as st
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 
-from webui._shared import PLOT_THEME, warn_if_stale_pipeline
+from tabs._shared import PLOT_THEME, warn_if_stale_pipeline
 
 
 def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:

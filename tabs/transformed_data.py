@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from webui._shared import PLOT_THEME, warn_if_stale_pipeline
+from tabs._shared import PLOT_THEME, warn_if_stale_pipeline
 
 
 def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:
