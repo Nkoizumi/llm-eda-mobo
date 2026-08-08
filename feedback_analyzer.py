@@ -23,6 +23,42 @@ class FeedbackAnalyzer:
     def __init__(self, config):
         self.config     = config
         self.target_col = getattr(config, "target_col", None)
+        # (transform, column) pairs already applied, so the feedback loop cannot
+        # apply the same one twice. It fed its corrected frame back in as the
+        # next iteration's input and nothing recorded what had been done, so a
+        # column that stayed above the skew threshold after log1p was logged
+        # again — log1p(log1p(x)) — for as many iterations as it kept failing.
+        #
+        # Measured on the bundled AmesHousing.csv (skew threshold 2.0): of six
+        # flagged columns, four are STILL flagged after one log1p —
+        #
+        #     BsmtFin SF 2       4.14 -> 2.45
+        #     Low Qual Fin SF   12.12 -> 8.58
+        #     Bsmt Half Bath     3.94 -> 3.78
+        #     Kitchen AbvGr      4.31 -> 3.53
+        #
+        # because their skew comes from a mass at zero, which a log cannot fix.
+        # The negative-value guard cannot catch the repeat either: log1p output
+        # is non-negative by construction.
+        self._applied: set[tuple[str, str]] = set()
+
+    def _unapplied(self, transform: str, cols: list) -> list:
+        """Subset of `cols` this transform has not already been applied to."""
+        fresh = [c for c in cols if (transform, c) not in self._applied]
+        repeats = [c for c in cols if c not in fresh]
+        if repeats and getattr(self.config, "verbose", False):
+            print(f"   ↩️  {transform} already applied, skipping : {repeats}")
+        return fresh
+
+    def _mark(self, transform: str, cols: list) -> None:
+        """Record columns this transform actually changed.
+
+        Separate from `_unapplied` on purpose: a column that was filtered out
+        downstream — log1p declining a column with negative values — has not
+        been transformed, so marking it there would bar a legitimate later
+        attempt once an earlier correction made it non-negative.
+        """
+        self._applied.update((transform, c) for c in cols)
 
     # ──────────────────────────────────────────────────────────────
     # Internal Guard
@@ -102,12 +138,14 @@ class FeedbackAnalyzer:
         outlier_features = eda_report.get("outlier_features", [])
         if outlier_features:
             # ✅ _safe_numeric_cols excludes target & non-numeric cols
-            cols_to_scale = self._safe_numeric_cols(df, outlier_features)
+            cols_to_scale = self._unapplied("robust",
+                self._safe_numeric_cols(df, outlier_features))
             if cols_to_scale:
                 scaler = RobustScaler()
                 df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
                 if self.config.verbose:
                     print(f"   📏 RobustScaler applied    : {cols_to_scale}")
+                self._mark("robust", cols_to_scale)
             elif self.config.verbose and outlier_features:
                 print(
                     f"   ⚠️  Outlier features skipped "
@@ -118,12 +156,14 @@ class FeedbackAnalyzer:
         damaged_features = eda_report.get("damaged_features", [])
         if damaged_features:
             # ✅ Same guard
-            cols_to_restore = self._safe_numeric_cols(df, damaged_features)
+            cols_to_restore = self._unapplied("minmax",
+                self._safe_numeric_cols(df, damaged_features))
             if cols_to_restore:
                 scaler = MinMaxScaler()
                 df[cols_to_restore] = scaler.fit_transform(df[cols_to_restore])
                 if self.config.verbose:
                     print(f"   🩹 MinMaxScaler applied    : {cols_to_restore}")
+                self._mark("minmax", cols_to_restore)
             elif self.config.verbose and damaged_features:
                 print(
                     f"   ⚠️  Damaged features skipped "
@@ -134,7 +174,8 @@ class FeedbackAnalyzer:
         skewed_features = eda_report.get("skewed_features", [])
         if skewed_features:
             # ✅ Same guard + extra: must be non-negative for log1p
-            cols_to_log = self._safe_numeric_cols(df, skewed_features)
+            cols_to_log = self._unapplied("log1p",
+                self._safe_numeric_cols(df, skewed_features))
             applied, skipped = [], []
 
             for col in cols_to_log:
@@ -144,6 +185,7 @@ class FeedbackAnalyzer:
                 df[col] = np.log1p(df[col])
                 applied.append(col)
 
+            self._mark("log1p", applied)
             if applied and self.config.verbose:
                 print(f"   🔢 log1p applied           : {applied}")
             if skipped and self.config.verbose:
@@ -322,7 +364,7 @@ class FeedbackAnalyzer:
             return df
 
         # ✅ Numeric + target guard first
-        safe_cols = self._safe_numeric_cols(df, log_cols)
+        safe_cols = self._unapplied("log1p", self._safe_numeric_cols(df, log_cols))
         applied, skipped = [], []
 
         for col in safe_cols:
@@ -341,6 +383,7 @@ class FeedbackAnalyzer:
         fully_skipped = [c for c in log_cols if c not in safe_cols]
         skipped.extend(fully_skipped)
 
+        self._mark("log1p", applied)
         if applied and self.config.verbose:
             print(f"   🔢 log1p applied           : {applied}")
         if fully_skipped and self.config.verbose:
