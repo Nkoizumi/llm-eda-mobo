@@ -53,6 +53,7 @@ def render(*, target_cols: list[str]) -> None:
     )
     from botorch.models.transforms import Normalize, Standardize
     from botorch.optim import optimize_acqf
+    from bo_seeding import DEFAULT_SEED, make_sampler, seed_everything
 
     X_bo      = np.asarray(mtl_bo["X"], dtype=np.float64)
     Y_bo_raw  = np.asarray(mtl_bo["Y"], dtype=np.float64)
@@ -335,10 +336,26 @@ def render(*, target_cols: list[str]) -> None:
         options=[128, 256, 512, 1024, 2048],
         value=512, key="bo_raw_samples",
     )
+    bo_seed = st.number_input(
+        "Random seed",
+        min_value=0, max_value=2**31 - 1, value=DEFAULT_SEED, step=1,
+        key="bo_seed",
+        help="Same seed + same data + same settings = the same suggested "
+             "experiments. Change it to see a different set of candidates from "
+             "the identical model.",
+    )
 
     bo_label = "MOBO" if n_targets > 1 else "BO"
     if st.button(f"Run {bo_label}", key="btn_run_bo", type="primary"):
         try:
+            # Pin every RNG the acquisition touches. Without this the Sobol
+            # sampler and optimize_acqf's random restarts both drew from an
+            # unseeded global RNG, so pressing this button twice on identical
+            # data proposed entirely different experiments (measured: max abs
+            # difference 0.41 on a [0,1] domain) with nothing on screen to say
+            # why. See bo_seeding.
+            bo_seed = int(bo_seed)
+            seed_everything(bo_seed)
             # Validate bounds
             lows  = edited_bounds["Min"].to_numpy(dtype=np.float64)
             highs = edited_bounds["Max"].to_numpy(dtype=np.float64)
@@ -369,7 +386,6 @@ def render(*, target_cols: list[str]) -> None:
                     from botorch.acquisition.logei import (
                         qLogExpectedImprovement,
                     )
-                    from botorch.sampling.normal import SobolQMCNormalSampler
 
                     gp = SingleTaskGP(
                         train_X_t, train_Y_t,
@@ -384,9 +400,7 @@ def render(*, target_cols: list[str]) -> None:
                     fit_gpytorch_mll(mll)
 
                     best_f = train_Y_t.max().item()
-                    sampler_bo = SobolQMCNormalSampler(
-                        sample_shape=torch.Size([128]),
-                    )
+                    sampler_bo = make_sampler(128, bo_seed)
                     acqf = qLogExpectedImprovement(
                         model    = gp,
                         best_f   = best_f,
@@ -411,7 +425,6 @@ def render(*, target_cols: list[str]) -> None:
                     from botorch.utils.multi_objective.box_decompositions.non_dominated import (
                         FastNondominatedPartitioning,
                     )
-                    from botorch.sampling.normal import SobolQMCNormalSampler
 
                     gp_models = []
                     for ti in range(n_targets):
@@ -443,9 +456,7 @@ def render(*, target_cols: list[str]) -> None:
                     partitioning = FastNondominatedPartitioning(
                         ref_point=ref_point_t, Y=train_Y_t,
                     )
-                    sampler = SobolQMCNormalSampler(
-                        sample_shape=torch.Size([128]),
-                    )
+                    sampler = make_sampler(128, bo_seed)
                     # ref_point as list[float] (NOT tensor) — the tensor form
                     # silently breaks qLogEHVI in some BoTorch versions; see
                     # feedback memory `feedback-botorch-ref-point`.

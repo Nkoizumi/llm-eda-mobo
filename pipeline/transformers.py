@@ -121,6 +121,9 @@ class OutlierHandler(BaseEstimator, TransformerMixin):
         elif self.method == "isolation_forest":
             self.iso_forest_ = IsolationForest(contamination=0.05, random_state=42)
             self.iso_forest_.fit(df[numeric_cols])
+            # Learn the replacement values HERE, not in transform. See the note
+            # in transform for what computing them there did.
+            self.iso_medians_ = df[numeric_cols].median()
         return self
 
     def transform(self, X):
@@ -135,9 +138,21 @@ class OutlierHandler(BaseEstimator, TransformerMixin):
             preds = self.iso_forest_.predict(df[numeric_cols])
             # Clip outlier rows to column medians rather than setting NaN,
             # which would re-introduce missing values after the imputer step.
+            #
+            # The medians come from `fit`. They used to be recomputed here from
+            # whatever frame was being transformed, which made `transform` a
+            # function of its own input rather than of the fitted state. Two
+            # consequences: test data was repaired towards TEST medians, and —
+            # worse, because it is silent — a single-row transform took the
+            # median of one row, i.e. that row itself, so the replacement was a
+            # no-op. Leave-one-out CV transforms exactly one row at a time, so
+            # outlier handling applied during training and quietly did nothing
+            # on the held-out point.
             if (preds == -1).any():
-                medians = df[numeric_cols].median()
-                df.loc[preds == -1, numeric_cols] = medians.values
+                medians = getattr(self, "iso_medians_", None)
+                if medians is None:                     # fitted before this fix
+                    medians = df[numeric_cols].median()
+                df.loc[preds == -1, numeric_cols] = medians.reindex(numeric_cols).values
         return df
 
 

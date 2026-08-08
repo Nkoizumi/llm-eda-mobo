@@ -4,6 +4,8 @@ import logging
 import pandas as pd
 import numpy as np
 
+from sklearn.base import clone as sk_clone
+from sklearn.pipeline import Pipeline as SkPipeline
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import LeaveOneOut
 from sklearn.metrics import (
@@ -317,21 +319,49 @@ class AutoEDAPipeline:
 
     # ─────────────────────────────────────────────────────────────────────
     def run_loo(self, df: pd.DataFrame, estimator) -> dict:
-        if not hasattr(self, "X_transformed") or self.X_transformed is None:
-            raise RuntimeError("Call get_transformed_df(df) before run_loo().")
+        """Leave-one-out CV with the preprocessing refit inside every fold.
 
-        X           = self.X_transformed
-        y           = self.y
+        It used to LOO-split `self.X_transformed`, which `get_transformed_df`
+        produces by calling `fit_transform` on the WHOLE frame. Every fold's
+        held-out row had therefore already contributed to the imputer's medians,
+        the power transform's lambda, the scaler's mean/std and the correlation
+        filter's column choice — so the result was not the held-out estimate its
+        name promises, and it disagreed in meaning with
+        `tabs/_loo_utils.run_loo_with_wrapper`, which does refit per fold.
+
+        Measured before changing it (2026-08-08), so the size of the effect is
+        on record rather than assumed:
+
+            Fish  (n=159) RF   R² 0.9711 -> 0.9711   (0.0000)
+            Fish  (n=159) MLP  R² 0.8486 -> 0.8501  (+0.0015)
+            slump (n=103) MLP  R² 0.1115 -> 0.1007  (-0.0109)
+
+        i.e. negligible, and BENCHMARKS.md is unaffected. RF is invariant to
+        monotone per-feature transforms, none of the pipeline steps look at the
+        target, and dropping one row of ~150 barely moves a median. The reason
+        to fix it anyway is that a method called `run_loo` should mean one
+        thing, and the honest version costs a refit per fold.
+        """
+        if self.pipeline_ is None:
+            raise RuntimeError("Call build_pipeline() first.")
+
+        X_raw = df.drop(columns=[self.target_col], errors="ignore")
+        if self.target_col not in df.columns:
+            raise RuntimeError(
+                f"run_loo needs the target column {self.target_col!r} in `df`."
+            )
+        y = df[self.target_col].loc[X_raw.index]
+
         loo         = LeaveOneOut()
         y_true_list = []
         y_pred_list = []
 
-        for train_idx, test_idx in loo.split(X):
-            X_train, X_test = X[train_idx], X[test_idx]
-            y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
-            estimator.fit(X_train, y_train)
-            pred = estimator.predict(X_test)
-            y_true_list.append(float(y_test.iloc[0]))
+        for train_idx, test_idx in loo.split(X_raw):
+            fold = SkPipeline([("prep", sk_clone(self.pipeline_)),
+                               ("est",  sk_clone(estimator))])
+            fold.fit(X_raw.iloc[train_idx], y.iloc[train_idx])
+            pred = fold.predict(X_raw.iloc[test_idx])
+            y_true_list.append(float(y.iloc[test_idx[0]]))
             y_pred_list.append(float(pred[0]))
 
         y_true_arr = np.array(y_true_list)
