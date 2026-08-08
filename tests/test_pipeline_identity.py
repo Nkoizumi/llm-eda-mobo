@@ -48,3 +48,46 @@ def test_the_loop_reports_the_model_behind_its_best_frame():
     src = inspect.getsource(FeedbackLoop)
     assert "self.best_model_name = model_name" in src
     assert "return self.best_df, None, self.history" not in src
+
+
+# ── offline operation ────────────────────────────────────────────────────────
+def test_the_pipeline_constructs_without_ollama():
+    """`use_local_llm=False` selects the rule-based fallback and never calls a
+    model, but AutoEDAPipeline built LocalEnsembleLLMEngine unconditionally and
+    OllamaClient verified the daemon in its constructor — so the one path meant
+    to work offline could not even be instantiated.
+
+    Found by CI, not locally: the whole suite passed on a machine with Ollama
+    running and failed the moment it ran anywhere else.
+    """
+    from pipeline.orchestrator import AutoEDAPipeline
+
+    eda = AutoEDAPipeline(target_col="y", task="regression",
+                          ollama_host="http://127.0.0.1:9",   # nothing listening
+                          use_local_llm=False)
+    assert eda.engine is not None
+
+
+def test_the_rule_based_path_runs_without_ollama():
+    import pandas as pd
+    from pipeline.orchestrator import AutoEDAPipeline
+
+    df = pd.DataFrame({"a": [1., 2., 3., 4.], "b": [4., 3., 2., 1.]})
+    eda = AutoEDAPipeline(target_col="y", task="regression",
+                          ollama_host="http://127.0.0.1:9", use_local_llm=False)
+
+    eda.build_pipeline(df)
+
+    assert eda.pipeline_ is not None
+    assert eda.ensemble_result_.final.scaler in {"standard", "robust", "minmax"}
+
+
+def test_the_client_is_only_built_when_actually_used():
+    from pipeline.local_llm_engine import LocalEnsembleLLMEngine
+
+    eng = LocalEnsembleLLMEngine(ollama_host="http://127.0.0.1:9")
+    assert eng._client is None, "client must not be constructed eagerly"
+
+    import pytest as _pytest
+    with _pytest.raises(ConnectionError):
+        eng.client

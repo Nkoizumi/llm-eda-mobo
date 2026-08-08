@@ -334,7 +334,29 @@ class LocalEnsembleLLMEngine:
     ]
 
     def __init__(self, ollama_host: str = "http://localhost:11434"):
-        self.client = OllamaClient(host=ollama_host)
+        # The client is built on first use, not here. OllamaClient.__init__
+        # verifies the daemon and raises ConnectionError if it is unreachable,
+        # so constructing it eagerly made this class — and therefore
+        # AutoEDAPipeline, which builds it unconditionally — impossible to
+        # instantiate without Ollama running. That broke the one path that is
+        # supposed to work without it: `use_local_llm=False` selects the
+        # rule-based fallback and never calls a model, yet still could not be
+        # constructed. Both methods that path needs, profile_dataset and
+        # _fallback_decision, are pure pandas.
+        self._ollama_host = ollama_host
+        self._client = None
+
+    @property
+    def client(self) -> "OllamaClient":
+        """Connect on first use, so offline callers never trigger the check."""
+        if self._client is None:
+            self._client = OllamaClient(host=self._ollama_host)
+        return self._client
+
+    @client.setter
+    def client(self, value) -> None:
+        """Settable so tests can inject a stub without a live daemon."""
+        self._client = value
 
     # ─────────────────────────────────────────────────────────────────────────
     # PUBLIC ENTRY POINT — called by orchestrator.py
