@@ -152,6 +152,23 @@ The three bolded tabs are the headline features. The rest are inspection surface
 
 See `requirements.txt` for the full Python dependency list.
 
+### VRAM: models are unloaded after each call
+
+Ollama normally keeps a model resident for 5 minutes after it answers. This
+project overrides that to **unload immediately**, because it is usually one step
+of a larger GPU workload that wants the card back — leaving 9–20 GB of weights
+parked in VRAM is what makes the *next* job fail with a CUDA OOM.
+
+The trade is a model reload (~10 s for Phi-4) on the next call. If you drive the
+EDA repeatedly and would rather spend VRAM than time, opt out:
+
+```bash
+export AUTO_EDA_OLLAMA_KEEP_ALIVE=5m   # Ollama's own default
+export AUTO_EDA_OLLAMA_KEEP_ALIVE=-1   # never unload
+```
+
+See `ollama_keepalive.py` for the details.
+
 ---
 
 ## Project layout

@@ -4,6 +4,8 @@ import json
 import requests
 from typing import Optional
 
+from ollama_keepalive import KEEP_ALIVE
+
 
 class ArbitratorLLM:
     """
@@ -190,6 +192,8 @@ Use empty list [] or empty dict {} where no action is needed.
         payload = {
             "model"  : self.arbitrator_model,
             "stream" : False,
+            # Free the VRAM as soon as the reply is back — see ollama_keepalive.
+            "keep_alive": KEEP_ALIVE,
             "messages": [
                 {
                     "role"   : "system",

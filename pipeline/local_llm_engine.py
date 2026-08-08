@@ -12,6 +12,8 @@ from typing import Optional
 from dataclasses import dataclass, field
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ollama_keepalive import KEEP_ALIVE
+
 logger = logging.getLogger(__name__)
 
 
@@ -245,10 +247,12 @@ class OllamaClient:
         options = {k: v for k, v in cfg.items() if k != "model_tag"}
 
         payload = {
-            "model":   cfg["model_tag"],
-            "prompt":  full_prompt,
-            "stream":  False,
-            "options": options,
+            "model":      cfg["model_tag"],
+            "prompt":     full_prompt,
+            "stream":     False,
+            "options":    options,
+            # Free the VRAM as soon as the reply is back — see ollama_keepalive.
+            "keep_alive": KEEP_ALIVE,
         }
 
         resp = httpx.post(

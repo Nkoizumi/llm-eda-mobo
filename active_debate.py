@@ -4,6 +4,8 @@ import json
 import requests
 from typing import Optional
 
+from ollama_keepalive import KEEP_ALIVE
+
 
 class TwoAgentDebate:
     """
@@ -138,6 +140,8 @@ Rules:
         payload = {
             "model"  : model,
             "stream" : False,
+            # Free the VRAM as soon as the reply is back — see ollama_keepalive.
+            "keep_alive": KEEP_ALIVE,
             "messages": [
                 {
                     "role"   : "system",
