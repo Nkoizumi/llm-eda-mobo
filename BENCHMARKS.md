@@ -6,7 +6,7 @@ Methodology:
 - LOO for `n ≤ 200`, 5-fold CV (shuffle, seed 42) otherwise.
 - Three base estimators tried per dataset: RandomForest, XGBoost, MLP. The best is reported.
 - Multi-target datasets use `MultiOutputRegressor` (sklearn) wrapping the base estimator.
-- Caveat: the LLM-built preprocessing pipeline is fit once on the full data before the CV split. This matches what `app.py` does — a small leak that biases metrics optimistically by a few percent but keeps numbers comparable to what users see in the LOO Results / Multitask Learning tabs.
+- Caveat: `scripts/run_benchmarks.py` fits the LLM-built preprocessing pipeline once on the full data before the CV split, so these numbers carry a small optimistic leak. **The app no longer does this** — `AutoEDAPipeline.run_loo` and the LOO Results tab both clone and refit the pipeline inside every fold, so what you see in the app is the stricter measurement. The gap was measured at ≤0.011 R² (Fish/RF 0.0000, Fish/MLP +0.0015, slump/MLP −0.0109): the table below is still the right regression baseline, but treat it as comparable-to-itself across versions rather than identical to an app run.
 
 ## Headline table
 
