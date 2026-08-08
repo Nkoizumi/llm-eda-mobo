@@ -102,7 +102,7 @@ Analyze this dataset profile and return preprocessing decisions as JSON.
 
 ## REQUIRED JSON OUTPUT (return ONLY this JSON, no other text):
 {{
-  "imputation_strategy": "mean OR median OR knn OR missforest",
+  "imputation_strategy": "mean OR median OR knn",
   "imputation_reasoning": "brief explanation",
   "knn_neighbors": 5,
   "power_transform": "yeo-johnson OR box-cox OR none",
@@ -126,7 +126,7 @@ Analyze this dataset profile and return preprocessing decisions as JSON.
 
 Rules:
 - Use yeo-johnson (not box-cox) if any feature has negative values
-- Use missforest if missing > 20% OR if data is MNAR
+- Use knn if missing > 20% OR if data is MNAR
 - Use robust scaler if many outliers detected
 - Add polynomial features only if n_rows > 100 and strong nonlinearity suspected
 """
@@ -500,6 +500,42 @@ class LocalEnsembleLLMEngine:
     # ─────────────────────────────────────────────────────────────────────────
     # DICT → LLMDecision
     # ─────────────────────────────────────────────────────────────────────────
+    # Values `_build_sklearn_pipeline` / OutlierHandler actually implement, and
+    # what each falls back to. These must stay in step with the builder: an
+    # unimplemented value there is silently coerced to the default, so if the
+    # two lists disagree the UI reports one preprocessing and another one runs.
+    #
+    # That is not hypothetical. The prompt used to advertise "missforest" as an
+    # imputation_strategy, which the builder never implemented — a model
+    # following the prompt correctly produced a report saying "missforest" while
+    # SimpleImputer(median) ran. Measured divergence before this guard:
+    #
+    #     reported  scaler='quantile'  imputation='iterative'  power='log'
+    #     applied   StandardScaler     SimpleImputer(median)   no power step
+    _VOCAB: dict[str, tuple[set, str]] = {
+        "imputation_strategy": ({"mean", "median", "knn"}, "median"),
+        "scaler":              ({"standard", "robust", "minmax"}, "standard"),
+        "power_transform":     ({"yeo-johnson", "box-cox", "none"}, "none"),
+        "outlier_method":      ({"iqr", "zscore", "isolation_forest", "none"}, "iqr"),
+    }
+
+    @classmethod
+    def _coerce(cls, key: str, value, model: str = "?"):
+        """Force `value` into the vocabulary the builder implements.
+
+        Returning the default here — loudly — is what keeps the decision the UI
+        displays identical to the decision that runs.
+        """
+        allowed, default = cls._VOCAB[key]
+        if isinstance(value, str) and value.strip().lower() in allowed:
+            return value.strip().lower()
+        logger.warning(
+            "[%s] %s=%r is not implemented (allowed: %s); using %r. The "
+            "reported decision is coerced too, so it still matches what runs.",
+            model, key, value, sorted(allowed), default,
+        )
+        return default
+
     def _dict_to_decision(
         self,
         d:       dict,
@@ -509,11 +545,14 @@ class LocalEnsembleLLMEngine:
     ) -> LLMDecision:
         return LLMDecision(
             model                 = model,
-            imputation_strategy   = d.get("imputation_strategy",      "median"),
+            imputation_strategy   = self._coerce("imputation_strategy",
+                                                d.get("imputation_strategy", "median"), model),
             imputation_reasoning  = d.get("imputation_reasoning",      ""),
             knn_neighbors         = int(d.get("knn_neighbors",         5)),
-            power_transform       = d.get("power_transform",           "yeo-johnson"),
-            outlier_method        = d.get("outlier_method",            "iqr"),
+            power_transform       = self._coerce("power_transform",
+                                                d.get("power_transform", "yeo-johnson"), model),
+            outlier_method        = self._coerce("outlier_method",
+                                                d.get("outlier_method", "iqr"), model),
             outlier_threshold     = float(d.get("outlier_threshold",   1.5)),
             correlation_threshold = float(d.get("correlation_threshold", 0.90)),
             feature_engineering   = d.get("feature_engineering", {
@@ -526,7 +565,7 @@ class LocalEnsembleLLMEngine:
                 "onehot_features":  [],
                 "ordinal_features": [],
             }),
-            scaler            = d.get("scaler",            "standard"),
+            scaler            = self._coerce("scaler", d.get("scaler", "standard"), model),
             reasoning_summary = d.get("reasoning_summary", ""),
             raw_response      = raw,
             confidence        = float(d.get("confidence",  0.75)),
@@ -572,6 +611,21 @@ class LocalEnsembleLLMEngine:
                 system     = SYSTEM_PROMPTS[ModelRole.GEMMA2],
             )
             resolved = self.client.extract_json(raw)
+
+            # The prompt asks Gemma2 to "choose the BEST value" but never
+            # restricts it to the two on offer, and nothing downstream checks.
+            # Keep only keys that were actually in conflict, and coerce each
+            # value into the implemented vocabulary — otherwise a third option
+            # neither model proposed is reported as the resolution while the
+            # builder silently applies its default.
+            wanted = {c["key"] for c in conflicts}
+            stray = set(resolved) - wanted
+            if stray:
+                logger.warning("[Gemma2 tiebreaker] ignoring key(s) not in "
+                               "conflict: %s", sorted(stray))
+            resolved = {k: self._coerce(k, v, "gemma2")
+                        for k, v in resolved.items()
+                        if k in wanted and k in self._VOCAB}
 
             logger.info(
                 f"[Gemma2 tiebreaker] ✅ resolved {len(resolved)} "
