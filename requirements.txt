@@ -56,3 +56,6 @@ json5
 #
 # SHAP-driven feedback loop (CLI):
 # shap
+
+# Test suite (see tests/ and .github/workflows/tests.yml)
+pytest

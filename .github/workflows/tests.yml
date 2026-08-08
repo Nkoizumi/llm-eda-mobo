@@ -1,0 +1,54 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # torch/gpytorch/botorch live in the [bo] extra, not requirements.txt.
+          # Without them tests/test_reproducibility.py SKIPS via importorskip —
+          # which would leave the BO seeding fix, one of the two most serious
+          # findings in the 2026-08-08 review, with no CI coverage at all. CPU
+          # wheels keep this to a few hundred MB rather than the ~2 GB CUDA build.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install gpytorch botorch
+          pip install pytest
+
+      - name: Run tests
+        # -ra surfaces skips in the summary: a silently skipped test looks
+        # exactly like a passing one otherwise.
+        run: pytest tests/ -q -ra
+
+      - name: Fail if a test skipped unexpectedly
+        run: |
+          pytest tests/ -q --collect-only >/dev/null
+          pytest tests/ -q -ra 2>&1 | tee /tmp/out.txt
+          if grep -qi "skipped" /tmp/out.txt; then
+            echo "::error::A test skipped — dependencies are probably missing."
+            exit 1
+          fi
+
+      - name: Streamlit smoke
+        run: |
+          python -c "
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('app.py', default_timeout=180).run()
+          assert not at.exception, at.exception
+          print('AppTest: 0 exceptions')
+          "
