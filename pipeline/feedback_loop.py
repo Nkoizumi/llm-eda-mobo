@@ -74,6 +74,7 @@ class FeedbackLoop:
         self.iteration  = 0
         self.history    = []
         self.best_score = -np.inf
+        self.best_model_name = None
         self.best_df    = None
 
         self.eda = AutoEDAPipeline(
@@ -268,6 +269,12 @@ class FeedbackLoop:
             if score > self.best_score:
                 self.best_score = score
                 self.best_df    = processed_df.copy()
+                # Track the model name with the frame it belongs to. Without
+                # this the max-iterations return below had nothing to report
+                # and passed None, so run_feedback.py printed
+                # "Best Model : N/A" for every run that did not exit early —
+                # which is the ordinary case.
+                self.best_model_name = model_name
                 print(f"  [STEP 6] New best score: {self.best_score:.4f} ✓")
 
             # ── Step 7: Apply corrections ──────────────────────────────────
@@ -283,7 +290,11 @@ class FeedbackLoop:
             f"\n  Max iterations reached."
             f" Best Score: {self.best_score:.4f}"
         )
-        return self.best_df, None, self.history
+        # NOTE: the two exits return different frames — the threshold exit
+        # above returns the CURRENT iteration's frame (it is the one that met
+        # the target), this one returns the best-scoring frame seen. Callers
+        # writing processed_data.csv get whichever applies.
+        return self.best_df, getattr(self, "best_model_name", None), self.history
 
     # ─────────────────────────────────────────────────────────────────────
     def print_history(self):

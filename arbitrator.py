@@ -305,8 +305,13 @@ Use empty list [] or empty dict {} where no action is needed.
         Fallback strategy when the arbitrator itself fails.
         Merges two proposals conservatively:
           - Only drops columns both agents agree to drop.
-          - Merges rescale, clip, and log_transform from both agents.
-          - Prefers RobustScaler if agents disagree on scaler type.
+          - Only log-transforms columns both agents agree to log.
+          - Widens clip bounds to the safer of the two on conflict.
+          - Merges rescale, preferring RobustScaler if agents disagree.
+
+        Rescale is the one union here, deliberately: choosing a scaler for a
+        column is reversible and low-risk, whereas dropping a column and
+        log1p-ing one are not.
         """
         # Drop only if BOTH agents agree
         drop_a = set(proposal_a.get("drop_columns", []))
@@ -337,10 +342,22 @@ Use empty list [] or empty dict {} where no action is needed.
             else:
                 clip[col] = bounds
 
-        # Merge log transform — union of both
+        # Merge log transform — intersection, like drops.
+        #
+        # This was a union, which made the "conservative" merge the LEAST
+        # conservative option available for the most destructive transform in
+        # the set: a column only one agent proposed logging got logged. Drops
+        # already required both agents to agree, and clips already widened to
+        # the safer of the two bounds, so the union was also inconsistent with
+        # the policy the docstring and the reasoning string both state.
+        #
+        # It matters most precisely here. This path runs only when the
+        # arbitrator LLM has already failed, i.e. when there is least reason to
+        # trust a single agent's unreviewed proposal, and log1p is the hardest
+        # of the four corrections to undo.
         log_a = set(proposal_a.get("log_transform_columns", []))
         log_b = set(proposal_b.get("log_transform_columns", []))
-        log_merged = list(log_a | log_b)
+        log_merged = list(log_a & log_b)
 
         merged = {
             "drop_columns"          : agreed_drops,
