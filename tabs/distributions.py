@@ -78,8 +78,14 @@ def render(df: pd.DataFrame, *, target_cols: list[str]) -> None:
             if val == "Yes" else ""
         )
 
+    # `Styler.map`, not `Styler.applymap`. The latter was deprecated in pandas
+    # 2.1 and REMOVED in 3.0, and `pandas` is unpinned in requirements.txt — so
+    # a fresh install picked up 3.x and this line raised AttributeError. Because
+    # app.py renders this tab unconditionally, that crashed the whole app at
+    # startup for anyone installing the project today. It stayed invisible in
+    # development only because the author's environment still had pandas 2.3.
     st.dataframe(
-        stats_data.style.applymap(
+        stats_data.style.map(
             highlight_transform, subset=["Needs Transform"]
         ),
         use_container_width=True

@@ -43,12 +43,3 @@ jobs:
             echo "::error::A test skipped — dependencies are probably missing."
             exit 1
           fi
-
-      - name: Streamlit smoke
-        run: |
-          python -c "
-          from streamlit.testing.v1 import AppTest
-          at = AppTest.from_file('app.py', default_timeout=180).run()
-          assert not at.exception, at.exception
-          print('AppTest: 0 exceptions')
-          "

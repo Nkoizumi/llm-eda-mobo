@@ -14,7 +14,7 @@ langchain-core
 tenacity
 
 # ── Data ─────────────────────────────────────────
-pandas
+pandas>=2.1        # Styler.map (replaces applymap, removed in pandas 3.0)
 numpy
 scipy
 scikit-learn>=1.3
