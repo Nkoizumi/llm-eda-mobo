@@ -29,6 +29,13 @@ class ModelRole(Enum):
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 2 — RTX4090 CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
+# `seed` is passed straight through to Ollama. It matters because sampling
+# happens at temperature > 0: without it, two identical dataset profiles can
+# yield different preprocessing decisions. Measured deterministic on Fish.csv
+# at temp 0.05, but that is luck rather than a guarantee — and
+# pipeline/feedback_loop.py rebuilds the pipeline every iteration, so a
+# drifting decision would be read as an effect of the feedback rather than of
+# the preprocessing having changed underneath it.
 RTX4090_CONFIG = {
     ModelRole.PHI4: {
         "model_tag":     "phi4:latest",
@@ -41,6 +48,7 @@ RTX4090_CONFIG = {
         "repeat_penalty": 1.1,
         "f16_kv":         True,
         "use_mmap":       True,
+        "seed":           42,
     },
     ModelRole.MISTRAL: {
         "model_tag":     "mistral:latest",
@@ -53,6 +61,7 @@ RTX4090_CONFIG = {
         "repeat_penalty": 1.1,
         "f16_kv":         True,
         "use_mmap":       True,
+        "seed":           42,
     },
     ModelRole.GEMMA2: {
         "model_tag":     "gemma2:latest",
@@ -65,6 +74,7 @@ RTX4090_CONFIG = {
         "repeat_penalty": 1.1,
         "f16_kv":         True,
         "use_mmap":       True,
+        "seed":           42,
     },
 }
 
