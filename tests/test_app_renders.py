@@ -20,7 +20,9 @@ pytest.importorskip("streamlit")
 def test_the_app_renders_with_no_uncaught_exception():
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file("app.py", default_timeout=180).run()
+    from conftest import APP_PY
+
+    at = AppTest.from_file(str(APP_PY), default_timeout=180).run()
 
     assert not at.exception, [e.value for e in at.exception]
 

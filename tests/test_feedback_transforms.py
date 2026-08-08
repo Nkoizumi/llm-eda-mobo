@@ -93,7 +93,9 @@ def test_the_llm_correction_mode_shares_the_same_guard(fa, df):
 
 def test_the_motivating_data_really_does_re_flag():
     """Pins the measurement the fix exists for, so it is not folklore."""
-    ames = pd.read_csv("data/AmesHousing.csv")
+    from conftest import DATA
+
+    ames = pd.read_csv(DATA / "AmesHousing.csv")
     ames.columns = ames.columns.str.strip()
     col = ames["Low Qual Fin SF"]
 
