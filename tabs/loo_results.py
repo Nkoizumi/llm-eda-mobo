@@ -105,6 +105,22 @@ def render(
             )
             enable_hpo = False
 
+        if enable_hpo:
+            st.info(
+                "**The LOO score below is not fully held out when HPO is on.** "
+                "Hyperparameters are searched over *every* row, then LOO is run "
+                "on those same rows — so each held-out point already influenced "
+                "the parameters being evaluated. A clean estimate needs nested "
+                "CV (a search inside every fold), which costs folds × trials.\n\n"
+                "Measured on the bundled `Fish.csv` with XGBoost, nested vs "
+                "not: **ΔR² = −0.0013** — i.e. nothing, and the wrong sign for "
+                "a leak. Expect it to stay small where hyperparameters barely "
+                "move the score, and to matter more on harder targets or "
+                "smaller samples. Treat *Best CV score* as the search's own "
+                "objective, not as expected performance: it is the maximum over "
+                "trials, so it is optimistic by construction."
+            )
+
         if st.session_state.hpo_results is not None:
             prev = st.session_state.hpo_results
             st.success(
