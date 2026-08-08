@@ -199,6 +199,19 @@ Rules:
 
         try:
             parsed = json.loads(clean)
+            # A list, string or number is valid JSON and not a proposal.
+            # `_fill_defaults` subscripts it and raises an uncaught TypeError,
+            # which kills the debate instead of degrading to an empty proposal.
+            # It also escapes upstream: ArbitratorLLM.decide() calls
+            # _fill_defaults on a surviving agent's argument, so a non-dict
+            # here would crash the arbitration too.
+            if not isinstance(parsed, dict):
+                print(
+                    f"[TwoAgentDebate] WARNING: {model} returned valid JSON of "
+                    f"type {type(parsed).__name__}, not an object. "
+                    f"Using empty proposal."
+                )
+                return self._empty_proposal(), True
             # Ensure all required keys exist with safe defaults
             parsed = self._fill_defaults(parsed)
             print(f"[TwoAgentDebate] {model} responded successfully.")

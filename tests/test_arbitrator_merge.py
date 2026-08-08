@@ -51,3 +51,54 @@ def test_disjoint_proposals_produce_no_destructive_action():
 
     assert m["drop_columns"] == []
     assert m["log_transform_columns"] == []
+
+
+# ── response parsing ─────────────────────────────────────────────────────────
+import pytest
+
+
+def _parser():
+    a = ArbitratorLLM.__new__(ArbitratorLLM)
+    a.arbitrator_model = "phi4"
+    return a
+
+
+def test_a_proper_object_parses():
+    parsed, failed = _parser()._parse_json_response('{"drop_columns": ["x"]}')
+
+    assert failed is False
+    assert parsed["drop_columns"] == ["x"]
+
+
+def test_missing_keys_are_filled_so_callers_cannot_keyerror():
+    parsed, _ = _parser()._parse_json_response('{"drop_columns": ["x"]}')
+
+    for key in ("rescale_columns", "clip_columns", "log_transform_columns"):
+        assert key in parsed
+
+
+@pytest.mark.parametrize("raw", ['["scaler"]', '"none"', '42', 'true'])
+def test_valid_json_that_is_not_an_object_falls_back(raw):
+    """These are all valid JSON and none is a decision. `_fill_defaults` used to
+    subscript them and raise an uncaught TypeError, killing the run instead of
+    reaching the conservative-merge fallback built for this."""
+    parsed, failed = _parser()._parse_json_response(raw)
+
+    assert failed is True
+    assert isinstance(parsed, dict)
+
+
+def test_malformed_json_still_falls_back():
+    parsed, failed = _parser()._parse_json_response("not json at all")
+
+    assert failed is True
+    assert isinstance(parsed, dict)
+
+
+def test_a_fenced_json_block_is_unwrapped():
+    parsed, failed = _parser()._parse_json_response(
+        'here you go:\n```json\n{"drop_columns": ["a"]}\n```'
+    )
+
+    assert failed is False
+    assert parsed["drop_columns"] == ["a"]

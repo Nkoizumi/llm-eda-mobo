@@ -278,6 +278,19 @@ Use empty list [] or empty dict {} where no action is needed.
 
         try:
             parsed = json.loads(clean)
+            # `json.loads` happily returns a list, string or number — all valid
+            # JSON, none of them a decision. `_fill_defaults` then did
+            # `decision[key] = val` on them and raised an uncaught TypeError,
+            # taking the run down instead of reaching the conservative-merge
+            # fallback that exists for precisely this case. Only malformed JSON
+            # was being treated as failure; well-formed nonsense was not.
+            if not isinstance(parsed, dict):
+                print(
+                    f"[ArbitratorLLM] WARNING: Arbitrator returned valid JSON "
+                    f"of type {type(parsed).__name__}, not an object. "
+                    f"Triggering fallback."
+                )
+                return self._empty_decision(), True
             parsed = self._fill_defaults(parsed)
             print(
                 f"[ArbitratorLLM] {self.arbitrator_model} "
@@ -366,9 +379,10 @@ Use empty list [] or empty dict {} where no action is needed.
             "log_transform_columns" : log_merged,
             "next_goal"             : "Conservative merge — arbitrator fallback applied.",
             "reasoning"             : (
-                "Arbitrator LLM failed. Applied conservative merge: "
-                "only dropped columns both agents agreed on, "
-                "merged rescale/clip/log transforms with safe defaults."
+                "Arbitrator LLM failed. Applied conservative merge: only "
+                "dropped and log-transformed columns both agents agreed on, "
+                "widened clip bounds to the safer of the two, and preferred "
+                "RobustScaler where they disagreed on a scaler."
             ),
             "consensus"             : False
         }

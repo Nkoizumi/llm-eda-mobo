@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from sklearn.base            import clone as sk_clone
 from sklearn.ensemble        import RandomForestRegressor, RandomForestClassifier
 from sklearn.linear_model    import Ridge, LogisticRegression
 from sklearn.model_selection import cross_val_score
@@ -135,9 +136,25 @@ class FeedbackEDAPipeline:
 
     # ── Public API ────────────────────────────────────────────────
 
-    def run(self, df: pd.DataFrame):
+    def run(self, df: pd.DataFrame, train_baseline: bool = False):
         """
         Full EDA + model training pipeline.
+
+        `train_baseline` defaults to False because the only caller discards the
+        result. feedback_controller.py:91 unpacks (model, model_name, score,
+        feature_imp) and then immediately calls ModelTrainer.train_and_evaluate,
+        using that score instead — the four values are never referenced again.
+
+        Measured on the bundled AmesHousing.csv (2930 rows x 28 numeric cols),
+        per iteration of the feedback loop:
+
+            detectors            (used)      0.01 s
+            _train_best_model    (discarded) 1.23 s
+            _compute_feature_imp (discarded) 1.26 s
+
+        so 99% of run() was work nobody read, repeated every round. Pass
+        train_baseline=True to get the old behaviour; the return shape is
+        unchanged either way.
 
         Returns
         -------
@@ -167,14 +184,17 @@ class FeedbackEDAPipeline:
             **self._basic_stats(df),
         }
 
-        self.model, self.model_name, self.score = self._train_best_model(df)
-        self.feature_imp = self._compute_feature_importance(df)
-
-        if self.verbose:
-            print(
-                f"\n✅ [AutoEDAPipeline] Done — "
-                f"Model: {self.model_name} | Score: {self.score:.4f}"
-            )
+        if train_baseline:
+            self.model, self.model_name, self.score = self._train_best_model(df)
+            self.feature_imp = self._compute_feature_importance(df)
+            if self.verbose:
+                print(
+                    f"\n✅ [FeedbackEDAPipeline] Done — "
+                    f"Model: {self.model_name} | Score: {self.score:.4f}"
+                )
+        elif self.verbose:
+            print("\n✅ [FeedbackEDAPipeline] Done — signals only "
+                  "(train_baseline=False; nothing consumes the baseline model)")
 
         return (
             self.eda_report,
@@ -373,6 +393,12 @@ class FeedbackEDAPipeline:
                     print(f"   ⚠️  [{name}] failed: {e}")
 
         if best_model is not None:
+            # clone() first: _MODELS holds INSTANTIATED estimators at class
+            # level, so fitting one mutates the class attribute that every
+            # FeedbackEDAPipeline shares — and feedback_controller builds a
+            # fresh pipeline each iteration. cross_val_score already clones
+            # internally, so only this final fit leaked.
+            best_model = sk_clone(best_model)
             best_model.fit(X, y)
 
         return best_model, best_name, best_score
