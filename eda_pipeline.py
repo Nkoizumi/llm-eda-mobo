@@ -73,9 +73,21 @@ def _encode_target(series: pd.Series, task_type: str) -> pd.Series:
 # AutoEDAPipeline
 # ──────────────────────────────────────────────────────────────────
 
-class AutoEDAPipeline:
+class FeedbackEDAPipeline:
     """
     Runs automated EDA on a DataFrame and trains a baseline model.
+
+    NOT the same class as `pipeline.orchestrator.AutoEDAPipeline`, which is
+    what the README, the Streamlit tabs and scripts/run_benchmarks.py all mean
+    by that name. The two shared a name while having incompatible constructors
+    (`config` here vs `target_col, task, ollama_host, use_local_llm` there) and
+    no method in common — this one produces SHAP-feedback diagnostics, that one
+    builds the LLM-chosen preprocessing pipeline.
+
+    Renamed because a same-name/different-class pair is how a later fix lands
+    in the wrong file. That nearly happened: the 2026-08-08 `run_loo` fix went
+    into `pipeline/orchestrator.py`, and anyone assuming FeedbackController
+    shared that code would have been wrong.
 
     Produces:
         eda_report  : dict — signals consumed by FeedbackController
@@ -398,3 +410,9 @@ class AutoEDAPipeline:
                 print(f"   {feat:<25} {imp:.4f}")
 
         return importance
+
+
+# Backwards-compatible alias. Prefer `FeedbackEDAPipeline` — the bare name
+# `AutoEDAPipeline` means pipeline.orchestrator.AutoEDAPipeline everywhere else
+# in this project.
+AutoEDAPipeline = FeedbackEDAPipeline

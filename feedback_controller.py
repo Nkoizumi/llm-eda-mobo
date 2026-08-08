@@ -66,12 +66,12 @@ class AutoEDAFeedbackController:
         -------
         (df, model_name, history)
         """
-        from eda_pipeline      import AutoEDAPipeline
+        from eda_pipeline      import FeedbackEDAPipeline
         from model_trainer     import ModelTrainer
         from feedback_analyzer import FeedbackAnalyzer
 
         df       = raw_df.copy()
-        eda      = AutoEDAPipeline(self.config)       # ✅ config passed
+        eda      = FeedbackEDAPipeline(self.config)   # ✅ config passed
         trainer  = ModelTrainer(self.config)           # ✅ config passed
         analyzer = FeedbackAnalyzer(self.config)
 
