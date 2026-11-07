@@ -24,6 +24,8 @@ from pipeline.models.hpo import (
 
 from tabs._shared    import PLOT_THEME, safe_regression_metrics, render_parity_plot
 from tabs._loo_utils import run_loo_with_wrapper
+from tabs.test_predict import store_bundle, best_params_download
+from pipeline.model_bundle import fit_single_target_bundle
 
 try:
     from tabpfn import TabPFNClassifier, TabPFNRegressor  # noqa: F401
@@ -128,6 +130,7 @@ def render(
                 f"Best CV score: **{prev['best_value']:.4f}**"
             )
             st.json(prev["best_params"])
+            best_params_download(prev, key="dl_hpo_params_prev")
 
     if st.button("Run LOO Cross-Validation", key="btn_run_loo"):
         if st.session_state.pipeline is None:
@@ -205,6 +208,9 @@ def render(
                             "estimator":   "XGBoost",
                             "best_params": xgb_hpo_params,
                             "best_value":  hpo_out["best_value"],
+                            "n_trials":    hpo_trials,
+                            "cv_folds":    hpo_cv_folds,
+                            "target":      loo_target,
                         }
                         st.success(
                             f"HPO done — best CV score: "
@@ -216,14 +222,14 @@ def render(
                         f"Running LOO with XGBoost"
                         f"{' (HPO params)' if enable_hpo else ''}…"
                     ):
+                        est = XGBoostModel(
+                            task         = task_type,
+                            n_splits     = 5,
+                            random_state = 42,
+                            hpo_params   = xgb_hpo_params,
+                        )
                         loo_out = run_loo_with_wrapper(
-                            XGBoostModel(
-                                task         = task_type,
-                                n_splits     = 5,
-                                random_state = 42,
-                                hpo_params   = xgb_hpo_params,
-                            ),
-                            X_loo, y_loo, task=task_type,
+                            est, X_loo, y_loo, task=task_type,
                         )
 
                 # ── Neural Network ────────────────────────────
@@ -271,6 +277,9 @@ def render(
                             "estimator":   "Neural Network",
                             "best_params": bp,
                             "best_value":  hpo_out["best_value"],
+                            "n_trials":    hpo_trials,
+                            "cv_folds":    hpo_cv_folds,
+                            "target":      loo_target,
                         }
                         st.success(
                             f"HPO done — best CV score: **{hpo_out['best_value']:.4f}** | "
@@ -285,9 +294,9 @@ def render(
                         f"Running LOO with Neural Network"
                         f"{' (HPO params)' if enable_hpo else ''}…"
                     ):
+                        est = NeuralNetworkModel(**nn_kwargs)
                         loo_out = run_loo_with_wrapper(
-                            NeuralNetworkModel(**nn_kwargs),
-                            X_loo, y_loo, task=task_type,
+                            est, X_loo, y_loo, task=task_type,
                         )
 
                 # ── TabPFN ────────────────────────────────────
@@ -346,6 +355,9 @@ def render(
                             "estimator":   "TabPFN",
                             "best_params": bp,
                             "best_value":  hpo_out["best_value"],
+                            "n_trials":    hpo_trials,
+                            "cv_folds":    hpo_cv_folds,
+                            "target":      loo_target,
                         }
                         st.success(
                             f"HPO done — best CV score: **{hpo_out['best_value']:.4f}** | "
@@ -358,12 +370,20 @@ def render(
                         f"Running LOO with TabPFN"
                         f"{' (HPO params)' if enable_hpo else ''}…"
                     ):
+                        est = tabpfn_wrapper
                         loo_out = run_loo_with_wrapper(
-                            tabpfn_wrapper, X_loo, y_loo, task=task_type,
+                            est, X_loo, y_loo, task=task_type,
                         )
 
                 st.session_state.loo_results = loo_out
                 st.success(f"LOO complete using **{estimator_choice}**!")
+                _fit_final_model(
+                    df, est,
+                    loo_out=loo_out, loo_target=loo_target,
+                    target_cols=target_cols, task_type=task_type,
+                    estimator_choice=estimator_choice,
+                    hpo=st.session_state.hpo_results if enable_hpo else None,
+                )
 
             except Exception as e:
                 import traceback
@@ -549,3 +569,46 @@ def render(
     fig_res.update_xaxes(title_text="Residual",  row=1, col=2)
     fig_res.update_yaxes(title_text="Count",     row=1, col=2)
     st.plotly_chart(fig_res, use_container_width=True)
+
+
+def _fit_final_model(df, est, *, loo_out, loo_target, target_cols, task_type,
+                     estimator_choice, hpo) -> None:
+    """Refit preprocessing + estimator on ALL training rows for the Test / Predict tab.
+
+    LOO only scores the model; it never keeps one. Testing on new data needs a
+    single model fitted on every training row, with the preprocessing fitted on
+    those same rows.
+    """
+    if task_type == "regression":
+        cv = {"scheme": "LOO", **{k: float(loo_out[k]) for k in ("r2", "rmse", "mae")
+                                  if k in loo_out}}
+    else:
+        cv = {"scheme": "LOO",
+              "accuracy": float(np.mean(loo_out.get("test_accuracy", [np.nan]))),
+              "f1_weighted": float(np.mean(loo_out.get("test_f1_weighted", [np.nan])))}
+    decisions = st.session_state.get("decisions")
+    try:
+        from dataclasses import asdict
+        llm_decision = asdict(decisions.final) if decisions is not None else None
+    except Exception:
+        llm_decision = None
+    try:
+        with st.spinner("Fitting the final model on all training rows…"):
+            bundle = fit_single_target_bundle(
+                df=df,
+                preprocessor=st.session_state.pipeline.pipeline_,
+                estimator=est,
+                target=loo_target,
+                target_cols=target_cols,
+                task=task_type,
+                estimator_name=estimator_choice,
+                cv_metrics={loo_target: cv},
+                hpo=hpo,
+                llm_decision=llm_decision,
+            )
+        store_bundle(bundle)
+        st.success(
+            "Final model fitted on all training rows and kept for the "
+            "**Test / Predict** tab (save it or its best parameters there).")
+    except Exception as e:
+        st.warning(f"LOO finished, but fitting the final model failed: {e}")

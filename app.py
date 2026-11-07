@@ -9,7 +9,7 @@ import streamlit as st
 from tabs import (
     overview, missing_values, distributions, outliers, correlations,
     llm_decisions, transformed_data, loo_results, mtl, feedback_loop,
-    bo_mobo,
+    bo_mobo, test_predict,
 )
 from tabs import results as results_tab
 
@@ -95,6 +95,8 @@ for key in [
     "mtl_results",          # joint multi-output model from the Multitask Learning tab
     "target_cols",          # list of selected target columns (max 3)
     "bo_candidates",        # last batch suggested by the BO/MOBO tab
+    "model_bundles",        # final fitted models kept for the Test / Predict tab
+    "test_predictions",     # last Test / Predict result
 ]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -281,6 +283,7 @@ if st.session_state.df is not None:
         "Feedback Loop",       # panels[9]
         "Results",             # panels[10]  per-target FI + PDP
         "BO / MOBO",           # panels[11]  Bayesian Optimization on the MTL surrogate
+        "Test / Predict",      # panels[12]  apply a trained model to new data
     ])
 
 
@@ -369,3 +372,10 @@ if st.session_state.df is not None:
     # ──────────────────────────────────────────────────────────────────────
     with panels[11]:
         bo_mobo.render(target_cols=target_cols)
+
+    # ──────────────────────────────────────────────────────────────────────
+    # TAB 13 — TEST / PREDICT  (panels[12])
+    # Apply the final model + training-fitted preprocessing to a new CSV.
+    # ──────────────────────────────────────────────────────────────────────
+    with panels[12]:
+        test_predict.render(target_cols=target_cols)

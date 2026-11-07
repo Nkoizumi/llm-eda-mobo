@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 
 from tabs._shared import PLOT_THEME, warn_if_stale_pipeline
+from tabs.test_predict import store_bundle
 
 
 def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:
@@ -66,6 +67,11 @@ def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:
                 X_mtl = X_full_df.values.astype(np.float32)
                 scaler_mtl = None
                 x_space_mtl = "pipeline-transformed"
+                # Snapshot the pipeline as fitted on these training rows; the
+                # session copy is refit by other tabs later.
+                import copy
+                prep_mtl = copy.deepcopy(st.session_state.pipeline.pipeline_)
+                fallback_cols_mtl = fallback_medians_mtl = None
             else:
                 X_raw = df.drop(columns=target_cols, errors="ignore")
                 X_raw_num = X_raw.select_dtypes(include=np.number)
@@ -75,6 +81,9 @@ def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:
                         "Decisions first or supply numeric features."
                     )
                     st.stop()
+                fallback_medians_mtl = X_raw_num.median().to_dict()
+                fallback_cols_mtl = list(X_raw_num.columns)
+                prep_mtl = None
                 X_raw_num = X_raw_num.fillna(X_raw_num.median())
                 feature_names_mtl = list(X_raw_num.columns)
                 scaler_mtl = StandardScaler()
@@ -207,6 +216,15 @@ def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:
                 final_model = wrapper_cls(base)
                 final_model.fit(X_mtl, Y_mtl)
 
+            _store_mtl_bundle(
+                final_model, df=df, target_cols=target_cols, task_type=task_type,
+                base_choice=base_choice, n_splits=n_splits_mtl,
+                fold_metrics=fold_metrics, feature_names=feature_names_mtl,
+                label_encoders=label_encoders_mtl, prep=prep_mtl,
+                scaler=scaler_mtl, fallback_cols=fallback_cols_mtl,
+                fallback_medians=fallback_medians_mtl,
+            )
+
             st.session_state.mtl_results = {
                 "model":           final_model,
                 "X":               X_mtl,
@@ -275,3 +293,45 @@ def render(df: pd.DataFrame, *, target_cols: list[str], task_type: str) -> None:
         f"{'MultiOutputClassifier' if mtl['task'] == 'classification' else 'MultiOutputRegressor'} · "
         f"Targets: {', '.join(mtl['target_cols'])}"
     )
+
+
+# Fold-metric names here -> the names the Test / Predict tab reports.
+_CV_KEY = {"R2": "r2", "MAE": "mae", "RMSE": "rmse", "Accuracy": "accuracy",
+           "F1": "f1_weighted", "Precision": "precision_weighted"}
+
+
+def _store_mtl_bundle(final_model, *, df, target_cols, task_type, base_choice,
+                      n_splits, fold_metrics, feature_names, label_encoders,
+                      prep, scaler, fallback_cols, fallback_medians) -> None:
+    """Keep the joint model + its preprocessing for the Test / Predict tab."""
+    from dataclasses import asdict
+    from pipeline.model_bundle import ModelBundle, summarize_training_frame, _make_portable
+
+    try:
+        cv = {}
+        for t, folds in fold_metrics.items():
+            if folds:
+                cv[t] = {"scheme": f"{n_splits}-fold KFold",
+                         **{_CV_KEY.get(k, k.lower()): float(np.mean([f[k] for f in folds]))
+                            for k in folds[0]}}
+        decisions = st.session_state.get("decisions")
+        X_train = df.drop(columns=target_cols, errors="ignore")
+        bundle = ModelBundle(
+            estimator=_make_portable(final_model),
+            task=task_type,
+            target_cols=list(target_cols),
+            feature_names=list(feature_names),
+            train_summary=summarize_training_frame(X_train),
+            preprocessor=prep,
+            fallback_columns=fallback_cols,
+            fallback_medians=fallback_medians,
+            fallback_scaler=scaler,
+            label_encoders=dict(label_encoders),
+            source="Multitask",
+            estimator_name=base_choice,
+            cv_metrics=cv,
+            llm_decision=asdict(decisions.final) if decisions is not None else None,
+        )
+        store_bundle(bundle)
+    except Exception as e:
+        st.warning(f"Model trained, but keeping it for Test / Predict failed: {e}")

@@ -127,6 +127,9 @@ CSV ─▶ profile ─▶ [Phi-4 ‖ Mistral] ─▶ agree? ─yes─▶ ensembl
 | 10 | Feedback Loop | SHAP-driven feature engineering suggestions back to the LLM |
 | 11 | Results | per-target permutation importance + top-5 partial dependence plots |
 | 12 | **BO / MOBO** | GP surrogates + BoTorch acquisition. 1D leaderboard / 2D / 3D Pareto plot. BO candidates overlaid on the existing-data front. |
+| 13 | Test / Predict | apply a trained model to a new CSV. Preprocessing uses the values fitted on the training rows (never refit on test data). Scores the test set when it has the target(s): parity plot + R²/RMSE/MAE/MAPE, or confusion matrix + accuracy/F1/MCC, next to the CV scores. Flags rows outside the training range. Saves the model as a bundle (`model.joblib` + `preprocessing.json` + `best_params.json`). |
+
+After **LOO Results** or **Multitask Learning** finishes, one final model is fitted on all training rows and kept for the *Test / Predict* tab. A saved bundle can be uploaded there in a later session; it contains a pickle, so load only bundles you made. HPO best parameters can also be downloaded or saved to `results/best_params/` from the LOO tab.
 
 The three bolded tabs are the headline features. The rest are inspection surfaces — read-only views into the pipeline state.
 
@@ -189,11 +192,13 @@ llm-eda-mobo/
 │   ├── feedback_loop.py       # Tab 10
 │   ├── results.py             # Tab 11 — per-target FI + PDP
 │   ├── bo_mobo.py             # Tab 12 — BO / MOBO on GP surrogates
+│   ├── test_predict.py        # Tab 13 — test a saved model on new data
 │   ├── _shared.py             # plot theme, parity plot, stale-pipeline guard
 │   └── _loo_utils.py          # LOO-specific helpers
 ├── eda_pipeline.py            # standalone EDA pipeline (used outside the UI)
 ├── pipeline/
 │   ├── orchestrator.py        # AutoEDAPipeline — programmatic entry point
+│   ├── model_bundle.py        # fitted preprocessing + model, save/load, test checks
 │   ├── local_llm_engine.py    # Phi-4 + Mistral ensemble + arbitrator
 │   ├── transformers.py        # HighCorrelationRemover
 │   ├── models/                # XGBoost / NN baseline models
